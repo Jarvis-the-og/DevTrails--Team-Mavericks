@@ -17,17 +17,31 @@ import firebase_admin
 from firebase_admin import credentials
 
 try:
-    # Look for any JSON file matching the typical Firebase service account naming
+    import json
+    
+    # Check for Vercel/Render Environment Variables FIRST
+    firebase_json = os.environ.get('FIREBASE_CREDENTIALS')
     cred_files = glob.glob("*firebase-adminsdk*.json")
-    if cred_files:
+    
+    if firebase_json:
+        try:
+            # Parse the text string back into a Python Dictionary
+            cred_dict = json.loads(firebase_json)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("Firebase Admin initialized using FIREBASE_CREDENTIALS environment variable.")
+        except Exception as json_err:
+            print(f"Error parsing FIREBASE_CREDENTIALS: {json_err}")
+            
+    elif cred_files:
         cred = credentials.Certificate(cred_files[0])
         firebase_admin.initialize_app(cred)
-        print(f"Firebase Admin initialized using explicit credentials: {cred_files[0]}")
+        print(f"Firebase Admin initialized using local explicit credentials: {cred_files[0]}")
     else:
         firebase_admin.initialize_app()
         print("Firebase Admin initialized via default credentials.")
 except Exception as e:
-    print(f"Firebase Admin init skip/error (using mocked tokens locally if needed): {e}")
+    print(f"Firebase Admin init skip/error: {e}")
 
 # ─── Gateway routes ──────────────────────────────────────────────────────────
 from routes import api

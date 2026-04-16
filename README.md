@@ -114,7 +114,7 @@ Traditional insurance solutions fail them because:
 | Tool | Purpose |
 |------|---------|
 | 🌍 **Vercel / Netlify** | Expected deployment target via `VITE_API_URL` variable binding |
-| 🔀 **Git** | Version control & Action pipelines |
+| 🔀 **Git** | Version control |
 
 ---
 

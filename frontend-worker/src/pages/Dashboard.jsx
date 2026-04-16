@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react'
 import { CloudRain, TrendingUp, ShieldCheck, IndianRupee, Wind } from 'lucide-react'
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'
+import { db } from '../firebaseConfig'
 
-const API = 'http://127.0.0.1:8000/api'
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
-export default function Dashboard() {
-  const user = JSON.parse(localStorage.getItem('worker_user') || '{"name":"Rahul","platform":"Zomato"}')
+export default function Dashboard({ user: firebaseUser }) {
+  // Derive display info from Firebase user or localStorage fallback
+  const localUser = JSON.parse(localStorage.getItem('worker_user') || '{"name":"Rahul","platform":"Zomato"}')
+  const user = {
+    name: firebaseUser?.displayName || localUser.name || firebaseUser?.email?.split('@')[0] || 'Worker',
+    platform: localUser.platform || 'Swiggy',
+    uid: firebaseUser?.uid || localUser.uid || 'anonymous',
+    email: firebaseUser?.email || localUser.email,
+  }
   const activePlanId = localStorage.getItem('worker_plan') || 'standard'
   
   const [rainfall, setRainfall] = useState(2.4)
@@ -34,17 +43,24 @@ export default function Dashboard() {
         setPremiumInfo({ weekly_premium: 45, weekly_cap: 2000, plan: 'Standard' })
       })
 
-    // Fetch user claims
-    fetch(`${API}/claims/${encodeURIComponent(user.name)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.claims) setClaims(data.claims)
-      })
-      .catch(() => {
-        // Fallback claims when backend is offline
-        setClaims([{ date: new Date().toLocaleDateString(), event: 'Heavy Rain Level 2', amount: 350, status: 'PAID' }])
-      })
-  }, [user.platform, activePlanId])
+    // Real-time Firestore listener for this user's claims
+    const claimsQuery = query(
+      collection(db, 'claims'),
+      where('userId', '==', user.name)
+    )
+    const unsubscribe = onSnapshot(claimsQuery, (snapshot) => {
+      const liveClaims = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      setClaims(liveClaims)
+    }, (err) => {
+      console.warn('Firestore listener error:', err)
+      // Fallback: fetch from REST API
+      fetch(`${API}/claims/${encodeURIComponent(user.name)}`)
+        .then(res => res.json())
+        .then(data => { if (data.claims) setClaims(data.claims) })
+        .catch(() => {})
+    })
+    return () => unsubscribe()
+  }, [user.name, user.platform, activePlanId])
 
   const weeklyCap = premiumInfo.weekly_cap || 0
   const totalPaidThisWeek = claims

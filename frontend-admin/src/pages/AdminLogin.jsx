@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Lock, ArrowRight, Shield } from 'lucide-react'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '../firebaseConfig'
 
 export default function AdminLogin() {
   const [form, setForm] = useState({ email: '', password: '' })
@@ -14,12 +16,17 @@ export default function AdminLogin() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    await new Promise(r => setTimeout(r, 800))
-    if (form.email === 'admin@parametric.ai' && form.password === 'admin123') {
-      localStorage.setItem('admin_user', JSON.stringify({ name: 'Admin', email: form.email }))
+    try {
+      await signInWithEmailAndPassword(auth, form.email, form.password)
       navigate('/')
-    } else {
-      setError('Invalid credentials. Try admin@parametric.ai / admin123')
+    } catch (err) {
+      const messages = {
+        'auth/user-not-found': 'No admin account found with this email.',
+        'auth/wrong-password': 'Incorrect password.',
+        'auth/invalid-credential': 'Invalid email or password.',
+        'auth/invalid-email': 'Invalid email address.',
+      }
+      setError(messages[err.code] || 'Login failed. Check your credentials.')
     }
     setLoading(false)
   }
@@ -78,7 +85,7 @@ export default function AdminLogin() {
           </form>
 
           <div style={{ marginTop: '1.25rem', padding: '0.75rem', background: 'rgba(168,85,247,0.05)', borderRadius: '0.5rem', border: '1px solid rgba(168,85,247,0.1)', fontSize: '0.75rem', color: '#64748b', textAlign: 'center' }}>
-            Demo: <span style={{ color: '#c084fc' }}>admin@parametric.ai</span> / admin123
+            Use your Firebase admin account credentials to log in.
           </div>
         </div>
       </div>

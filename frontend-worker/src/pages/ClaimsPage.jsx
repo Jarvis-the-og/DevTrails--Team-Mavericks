@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { CheckCircle, XCircle, AlertCircle, Clock, Search, Plus, MapPin, RefreshCw } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebaseConfig'
 
-const API = 'http://127.0.0.1:8000/api'
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
 const statusConfig = {
   PAID:              { label: 'Paid',      class: 'badge-green',  icon: <CheckCircle size={11} /> },
@@ -14,12 +17,17 @@ const statusConfig = {
   PENDING:           { label: 'Pending',   class: 'badge-blue',   icon: <Clock size={11} /> },
 }
 
-export default function ClaimsPage() {
-  const user = JSON.parse(localStorage.getItem('worker_user') || '{"name":"Rahul","platform":"Zomato"}')
+export default function ClaimsPage({ user: firebaseUser }) {
+  const localUser = JSON.parse(localStorage.getItem('worker_user') || '{"name":"Rahul","platform":"Zomato"}')
+  const user = {
+    name: firebaseUser?.displayName || localUser.name || firebaseUser?.email?.split('@')[0] || 'Worker',
+    platform: localUser.platform || 'Swiggy',
+  }
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('ALL')
   const [claimsData, setClaimsData] = useState([])
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
   
   const [showModal, setShowModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -39,6 +47,7 @@ export default function ClaimsPage() {
             amount: c.amount || 0,
             status: c.status === 'approved_paid' || c.status === 'instant_payout' ? 'PAID' : c.status === 'flagged' ? 'REJECTED' : c.status === 'verification_required' ? 'UNDER_REVIEW' : 'PENDING',
             trustScore: c.trustScore || 0,
+            rawStatus: c.status,
           }))
           setClaimsData(mapped)
         }
@@ -48,8 +57,26 @@ export default function ClaimsPage() {
   }
 
   useEffect(() => {
-    fetchClaims()
-  }, [])
+    // Real-time Firestore listener
+    const claimsQ = query(collection(db, 'claims'), where('userId', '==', user.name))
+    const unsubscribe = onSnapshot(claimsQ, (snapshot) => {
+      const mapped = snapshot.docs.map((doc, i) => {
+        const c = { id: doc.id, ...doc.data() }
+        return {
+          id: `CLM-${c.id.slice(0, 4).toUpperCase()}`,
+          date: c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
+          event: c.event || 'Parametric Trigger',
+          amount: c.amount || 0,
+          status: c.status === 'approved_paid' || c.status === 'instant_payout' ? 'PAID' : c.status === 'flagged' ? 'REJECTED' : c.status === 'verification_required' ? 'UNDER_REVIEW' : 'PENDING',
+          trustScore: c.trustScore || 0,
+          rawStatus: c.status,
+        }
+      })
+      setClaimsData(mapped)
+      setLoading(false)
+    }, () => fetchClaims())
+    return () => unsubscribe()
+  }, [user.name])
 
   const handleOpenModal = () => {
     setShowModal(true)

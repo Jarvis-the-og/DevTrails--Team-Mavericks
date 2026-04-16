@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Users, FileText, ShieldAlert, IndianRupee, RefreshCw } from 'lucide-react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebaseConfig'
 
-const API = 'http://127.0.0.1:8000/api'
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -29,9 +31,21 @@ export default function AnalyticsDashboard() {
   }
 
   useEffect(() => {
-    fetchAnalytics()
-    const interval = setInterval(fetchAnalytics, 30000)
-    return () => clearInterval(interval)
+    // Real-time Firestore listener on the weekly_summary document
+    const unsub = onSnapshot(
+      doc(db, 'analytics', 'weekly_summary'),
+      (snap) => {
+        if (snap.exists()) {
+          setData(snap.data())
+        }
+        setLoading(false)
+      },
+      () => {
+        // Firestore failed — fall back to REST
+        fetchAnalytics()
+      }
+    )
+    return () => unsub()
   }, [])
 
   const weekData = data?.days || []

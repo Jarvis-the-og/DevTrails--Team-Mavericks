@@ -4,12 +4,6 @@
 
 **Built for the DevTrails Hackathon 2025 by Team Mavericks**
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-surf3rr.github.io-blue?style=for-the-badge)](https://surf3rr.github.io/devtrails-v2/)
-[![Worker Portal](https://img.shields.io/badge/Worker%20Portal-Visit-green?style=for-the-badge)](https://surf3rr.github.io/devtrails-v2/worker/)
-[![Admin Portal](https://img.shields.io/badge/Admin%20Portal-Visit-orange?style=for-the-badge)](https://surf3rr.github.io/devtrails-v2/admin/)
-
----
-
 ## 📖 Table of Contents
 
 - [The Problem](#-the-problem)
@@ -68,17 +62,11 @@ Traditional insurance solutions fail them because:
 ```
 
 1. **Select Coverage** — Gig worker selects a micro-premium plan based on their typical delivery zones (standard vs sub-zones), labor platform, and risk profile.
-2. **Monitor Triggers** — The platform continuously monitors real-time weather and AQI APIs for the worker's registered geographic zones.
-3. **Automatic Claim** — When conditions cross the trigger threshold (e.g., Heavy Rain > 10mm, AQI > hazardous), an automated claim is filed on behalf of the worker.
-4. **Receive Payout** — The Trust Engine validates the worker's presence in the affected zone via device IP tracking; if legitimate, the payout is deposited directly within 24 hours.
-
----
-
-## 🏗️ Architecture Overview
+2. **Monitor Triggers** — The platform continuously monitors real-time weather and AQI APIs for the## 🏗️ Architecture Overview
 
 ```
                         ┌─────────────────────────────────────┐
-                        │        ParamedicGuard Platform       │
+                        │        ParametricGuard Platform       │
                         └─────────────────────────────────────┘
                                           │
               ┌───────────────────────────┼───────────────────────────┐
@@ -88,19 +76,10 @@ Traditional insurance solutions fail them because:
     │  (React + Vite)    │   │   (FastAPI + Python)   │   │   (React + Vite)     │
     │                    │   │                        │   │                      │
     │  • Live AQI/Rain   │   │  • Premium Calculator  │   │  • Platform Metrics  │
-    │  • Coverage Plans  │   │  • Weather Trigger API │   │  • Loss Ratio        │
-    │  • Payout History  │   │  • Payout Engine       │   │  • Zone Risk Maps    │
-    │  • Worker Profile  │   │  • Claims Processor    │   │  • Fraud Flags       │
-    └────────────────────┘   │  • Trust Engine (AI)   │   └──────────────────────┘
-                             └────────────────────────┘
-                                          │
-                             ┌────────────▼──────────┐
-                             │    fraud_engine        │
-                             │                        │
-                             │  • IP Geolocation      │
-                             │  • Anomaly Detection   │
-                             │  • Historical Scoring  │
-                             └────────────────────────┘
+    │  • Coverage Plans  │   │  • Admin Weather Triggers│   │  • Loss Ratio        │
+    │  • Verify Liveness │   │  • Active Claims Engine│   │  • Zone Risk Maps    │
+    │  • Worker Profile  │   │  • Fraud ML Evaluator  │   │  • Real-tie Fraud    │
+    └────────────────────┘   └────────────────────────┘   └──────────────────────┘
 ```
 
 ---
@@ -110,32 +89,32 @@ Traditional insurance solutions fail them because:
 ### 🔙 Backend
 | Technology | Purpose |
 |------------|---------|
-| 🐍 **Python 3.9+** | Core backend language |
-| ⚡ **FastAPI** | High-performance REST API framework |
+| 🐍 **Python 3.11+** | Core backend language |
+| ⚡ **FastAPI** | High-performance unified REST API framework |
 | 🦄 **Uvicorn** | ASGI server for async Python |
-| 📦 **pip / requirements.txt** | Dependency management |
+| 📦 **Scikit-Learn** | ML framework (Isolation Forests) for Anomaly Detections |
 
 ### 🖥️ Frontend
 | Technology | Purpose |
 |------------|---------|
-| ⚛️ **React** | UI framework for both portals |
-| ⚡ **Vite** | Next-gen frontend build tool |
-| 🎨 **CSS** | Styling and responsive design |
-| 🌐 **HTML5** | Landing page and static assets |
+| ⚛️ **React** | UI frameworks for Admin and Worker dashboards |
+| ⚡ **Vite** | Build tools incorporating `.env` variable ingestion |
+| 🎨 **Tailwind CSS** | Styling and responsive design |
+| 🔒 **Firebase Auth** | True production-grade user authentication |
+| 🔥 **Firestore** | Real-time `onSnapshot` streaming for live claims and actions |
 
 ### 🤖 AI / Intelligence Layer
 | Component | Purpose |
 |-----------|---------|
-| 🧠 **Trust Engine** | Proprietary fraud detection via IP + historical scoring |
-| 🌦️ **Weather API Integration** | Real-time rainfall and AQI data per zone |
-| 📊 **Risk Scoring** | Dynamic premium calculation by zone & platform |
+| 🧠 **Fraud Engine** | Unified 4-layer validation combining Device Integrity, Liveness, Geolocation & Behaviors |
+| 🌦️ **Weather Triggers** | Simulated/Real parametric triggers reacting via backend logic |
+| 📊 **Risk Scoring** | Dynamic premium calculation utilizing Isolation Forest ML probabilities |
 
 ### 🚀 DevOps / Infrastructure
 | Tool | Purpose |
 |------|---------|
-| 🐙 **GitHub Actions** | CI/CD pipeline (`.github/workflows/`) |
-| 🌍 **GitHub Pages** | Live demo hosting |
-| 🔀 **Git** | Version control |
+| 🌍 **Vercel / Netlify** | Expected deployment target via `VITE_API_URL` variable binding |
+| 🔀 **Git** | Version control & Action pipelines |
 
 ---
 
@@ -145,60 +124,47 @@ Traditional insurance solutions fail them because:
 devtrails-v2/
 │
 ├── 📄 README.md                    # Project documentation
-├── 📄 index.html                   # Landing page (GitHub Pages root)
-├── 📄 .gitignore
-│
-├── 🔄 .github/
-│   └── workflows/                  # CI/CD pipeline configuration
+├── 📄 .gitignore                   # Safe Gitignores for ENV & Firebase JSON
 │
 ├── 🐍 backend-python/              # FastAPI Microservices Backend
-│   ├── main.py                     # App entry point & route registration
+│   ├── main.py                     # Unified API entry + model hydration loop
 │   ├── requirements.txt            # Python dependencies
 │   │
-│   ├── routers/                    # API route handlers
-│   │   ├── premium.py              # Premium calculation endpoints
-│   │   ├── triggers.py             # Weather/AQI trigger evaluation
-│   │   ├── payouts.py              # Payout execution logic
-│   │   └── claims.py               # Claims processing
+│   ├── routes/                     # API route handlers
+│   │   └── api.py                  # Single-file endpoint unification
 │   │
-│   └── services/                   # Business logic layer
-│       ├── weather_service.py      # External weather API integration
-│       └── trust_service.py        # Trust Engine telemetry
-│
-├── 🚨 fraud_engine/                # AI Fraud Detection Module
-│   ├── trust_engine.py             # Core fraud scoring logic
-│   ├── ip_tracker.py               # Device IP geolocation
-│   └── anomaly_detector.py         # Historical anomaly detection
+│   ├── services/                   # Business logic layer
+│   │   ├── premium_service.py      # Micro-premiums logic
+│   │   ├── trigger_service.py      # Parametric weather assessments
+│   │   └── claims_service.py       # Payout pipeline
+│   │
+│   └── fraud_engine/               # Intelligence Layer
+│       ├── ml/                     # IsolationForest trained models
+│       └── db/                     # Internal persistence logs
 │
 ├── 👷 frontend-worker/             # Gig Worker Dashboard (React + Vite)
 │   ├── src/
-│   │   ├── App.jsx                 # Root component
-│   │   ├── components/
-│   │   │   ├── LiveConditions.jsx  # Real-time AQI/Rainfall display
-│   │   │   ├── CoveragePlans.jsx   # Insurance plan selector
-│   │   │   └── PayoutHistory.jsx   # Recent payouts viewer
-│   │   └── api/
-│   │       └── index.js            # Backend API calls
+│   │   ├── App.jsx                 # Routing + Firebase Authentication Listeners
+│   │   ├── firebaseConfig.js       # Required Firebase credential injections
+│   │   └── pages/
+│   │       ├── Dashboard.jsx       # Real-time onSnapshot claims monitoring
+│   │       ├── VerificationPage.jsx# Interactive camera-capture & facial liveness
+│   │       └── PolicyPage.jsx      # Policy onboarding 
+│   │
 │   ├── package.json
 │   └── vite.config.js
 │
-├── 🛠️ frontend-admin/              # Admin Dashboard (React + Vite)
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── components/
-│   │   │   ├── PlatformMetrics.jsx # System health overview
-│   │   │   ├── LossRatioChart.jsx  # Financial loss ratio display
-│   │   │   ├── ZoneRiskMap.jsx     # Geographic risk distribution
-│   │   │   └── FraudFlags.jsx      # Anomalous claims flagging
-│   │   └── api/
-│   │       └── index.js
-│   ├── package.json
-│   └── vite.config.js
-│
-├── ⚛️ frontend-react/              # Shared React components / utilities
-│   └── ...
-│
-└── 📋 DevTrails--Team-Mavericks    # Hackathon submission metadata
+└── 🛠️ frontend-admin/              # Admin Dashboard (React + Vite)
+    ├── src/
+    │   ├── App.jsx
+    │   ├── firebaseConfig.js       # Admin credential injections
+    │   └── pages/
+    │       ├── AdminLogin.jsx      # Secured login portal
+    │       ├── FraudMonitor.jsx    # Real-time anomaly dashboard
+    │       └── TriggerControl.jsx  # Interactive payload trigger board
+    │
+    ├── package.json
+    └── vite.config.js
 ```
 
 ---

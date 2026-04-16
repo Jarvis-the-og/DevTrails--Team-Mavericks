@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MapPin, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react'
 
-const API = 'http://127.0.0.1:8000/api'
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
 const riskConfig = {
   HIGH: { badgeClass: 'badge-red', label: 'High Risk', barColor: '#ef4444', glow: 'rgba(239,68,68,0.2)' },

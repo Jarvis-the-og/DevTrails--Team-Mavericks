@@ -1,19 +1,25 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FileText, Shield, LogOut, Bell } from 'lucide-react'
+import { LayoutDashboard, FileText, Shield, LogOut, Bell, Camera } from 'lucide-react'
+import { signOut } from 'firebase/auth'
+import { auth } from '../firebaseConfig'
 
 const navItems = [
   { to: '/', icon: <LayoutDashboard size={22} />, label: 'Home', end: true },
   { to: '/claims', icon: <FileText size={22} />, label: 'Claims' },
   { to: '/policy', icon: <Shield size={22} />, label: 'Policy' },
+  { to: '/verify', icon: <Camera size={22} />, label: 'Verify' },
 ]
 
-export default function Layout() {
+export default function Layout({ user: firebaseUser }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const user = JSON.parse(localStorage.getItem('worker_user') || '{"name":"Rahul K.","platform":"Zomato"}')
+  const localUser = JSON.parse(localStorage.getItem('worker_user') || '{"name":"Worker","platform":"Swiggy"}')
+  const displayName = firebaseUser?.displayName || localUser.name || firebaseUser?.email?.split('@')[0] || 'Worker'
+  const platform = localUser.platform || 'Swiggy'
 
-  const logout = () => {
-    localStorage.removeItem('worker_user')
+  const logout = async () => {
+    try { await signOut(auth) } catch (e) { console.warn(e) }
+    localStorage.clear()
     navigate('/login')
   }
 
@@ -42,11 +48,11 @@ export default function Layout() {
         {/* User pill */}
         <div className="glass-light" style={{ padding: '0.75rem 1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#16a34a,#22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.875rem', color: 'white', flexShrink: 0 }}>
-            {user.name?.[0] || 'R'}
+            {displayName?.[0]?.toUpperCase() || 'W'}
           </div>
           <div style={{ overflow: 'hidden' }}>
-            <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
-            <div style={{ fontSize: '0.7rem', color: '#22c55e' }}>{user.platform}</div>
+            <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
+            <div style={{ fontSize: '0.7rem', color: '#22c55e' }}>{platform}</div>
           </div>
         </div>
 

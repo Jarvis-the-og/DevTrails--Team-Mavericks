@@ -1,7 +1,9 @@
 import { AlertOctagon, Clock, Ban, Eye, X, ShieldAlert, Navigation, Smartphone, Fingerprint, RefreshCw } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'
+import { db } from '../firebaseConfig'
 
-const API = 'http://127.0.0.1:8000/api'
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
 function ScoreBar({ value, color }) {
   return (
@@ -24,34 +26,44 @@ export default function FraudMonitor() {
     fetch(`${API}/claims/all`)
       .then(res => res.json())
       .then(data => {
-        if (data.claims) {
-          const flaggedClaims = data.claims
-            .filter(c => c.status === 'flagged' || (c.trustScore && c.trustScore < 0.5))
-            .map(c => ({
-              id: c.id ? `CLM-${c.id.slice(0, 4).toUpperCase()}` : 'CLM-????',
-              user: c.userId || 'Unknown',
-              ip: c.ip || '0.0.0.0',
-              platform: c.platform || 'Unknown',
-              reason: c.trustScore < 0.3 ? 'Missing GPS + suspicious user-agent' : 'Low trust score — anomalous behavior',
-              trustScore: c.trustScore || 0,
-              locationScore: c.factors?.location_score || 0,
-              behaviorScore: c.factors?.behavioral_score || 0,
-              deviceScore: c.factors?.device_score || 0,
-              date: c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
-              attempts: Math.floor(Math.random() * 5) + 1,
-              location: c.location,
-            }))
-          setFlagged(flaggedClaims)
-        }
+        if (data.claims) mapClaims(data.claims)
         setLoading(false)
       })
       .catch(err => { console.error(err); setLoading(false) })
   }
 
+  const mapClaims = (claimsList) => {
+    const flaggedClaims = claimsList
+      .filter(c => c.status === 'flagged' || (c.trustScore && c.trustScore < 0.5))
+      .map(c => ({
+        id: c.id ? `CLM-${c.id.slice(0, 4).toUpperCase()}` : 'CLM-????',
+        user: c.userId || 'Unknown',
+        ip: c.ip || '0.0.0.0',
+        platform: c.platform || 'Unknown',
+        reason: c.fraudScore > 0.65 ? 'High ML anomaly score — multi-layer fraud flags triggered' : c.trustScore < 0.3 ? 'Missing GPS + suspicious user-agent' : 'Low trust score — anomalous behavior pattern',
+        trustScore: c.trustScore || 0,
+        fraudScore: c.fraudScore || 0,
+        locationScore: c.factors?.location_score || 0,
+        behaviorScore: c.factors?.behavioral_score || 0,
+        deviceScore: c.factors?.device_score || 0,
+        mlAnomalyScore: c.factors?.ml_anomaly_score || 0,
+        date: c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
+        // Real velocity: count how many claims this user has
+        attempts: claimsList.filter(x => x.userId === c.userId).length,
+        location: c.location,
+      }))
+    setFlagged(flaggedClaims)
+  }
+
   useEffect(() => {
-    fetchFlagged()
-    const interval = setInterval(fetchFlagged, 15000)
-    return () => clearInterval(interval)
+    // Real-time Firestore listener for flagged claims
+    const q = query(collection(db, 'claims'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      mapClaims(all)
+      setLoading(false)
+    }, () => fetchFlagged())
+    return () => unsubscribe()
   }, [])
 
   const blockedPayouts = flagged.length * 2000

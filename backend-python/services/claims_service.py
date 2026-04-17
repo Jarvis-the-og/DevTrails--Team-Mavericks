@@ -4,6 +4,9 @@ Uses the FraudDetector (Isolation Forest + Rules blend) instead of the
 simple rule-based trust_engine for proper 4-layer fraud detection.
 """
 import time
+import logging
+logger = logging.getLogger(__name__)
+
 from db.database import get_firestore_client
 from services.payments_service import process_upi_payout
 
@@ -73,7 +76,7 @@ def _ml_fraud_score(claim_data: dict) -> dict:
             disruption_type="rain",
         )
     except Exception as e:
-        print(f"[ML] Isolation Forest unavailable, using 0.0: {e}")
+        logger.error(f"[ML] Isolation Forest scoring failed: {e}")
         ml_anomaly = 0.0
 
     # ── Ensemble blend ────────────────────────────────────────────────────────
@@ -174,7 +177,7 @@ async def submit_claim(payload: dict) -> dict:
             )
             total_week_payouts = sum(doc.to_dict().get("amount", 0) for doc in past_claims)
         except Exception as e:
-            print(f"[WARN] Compound Firestore query failed (composite index may be needed): {e}")
+            logger.warning(f"Compound Firestore query failed (composite index may be needed): {e}")
             total_week_payouts = 0
 
         from services.trigger_service import calculate_payout

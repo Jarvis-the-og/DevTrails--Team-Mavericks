@@ -1,6 +1,6 @@
 import sys, os, json
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from services.trust_engine import evaluate_trust_score
+from services.claims_service import _ml_fraud_score
 
 tests = [
     ("LEGIT (Bangalore, near event)", {"lat":12.9716,"lon":77.5946,"ip":"103.21.58.12","user_agent":"Mozilla/5.0 Android","recent_ip_claims":0}),
@@ -13,7 +13,7 @@ with open("db/test_results.txt", "w", encoding="utf-8") as f:
     f.write("FRAUD DETECTION MODEL TEST RESULTS\n")
     f.write("=" * 50 + "\n\n")
     for name, data in tests:
-        r = evaluate_trust_score(data)
+        r = _ml_fraud_score(data)
         tag = "PASS" if r["decision"]=="instant_payout" else ("WARN" if r["decision"]=="verification_required" else "BLOCKED")
         f.write(f"[{tag}] {name}\n")
         f.write(f"  Score:    {r['trustScore']}\n")

@@ -9,6 +9,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from dotenv import load_dotenv
+
+load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
 
 # ─── Firebase Init ────────────────────────────────────────────────────────────
@@ -119,3 +122,7 @@ def healthcheck():
 @app.get("/health", tags=["System"])
 async def health():
     return {"status": "ok", "service": "parametric-guard-unified"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

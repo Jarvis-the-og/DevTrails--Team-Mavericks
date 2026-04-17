@@ -13,9 +13,14 @@ from db.database import get_firestore_client
 router = APIRouter()
 
 # ─── Razorpay Client ──────────────────────────────────────────────────────────
-RZP_KEY_ID = 'rzp_test_SZTRH39KNoZTLr'
-RZP_KEY_SECRET = 'cBcDe0W3URwyZe1c925luque'
+import os
+RZP_KEY_ID = os.environ.get('RZP_KEY_ID', 'rzp_test_placeholder')
+RZP_KEY_SECRET = os.environ.get('RZP_KEY_SECRET', 'placeholder_secret')
 rzp_client = razorpay.Client(auth=(RZP_KEY_ID, RZP_KEY_SECRET))
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -182,6 +187,21 @@ async def calculate_premium(req: PremiumCalculateRequest):
 async def check_event(lat: float = 12.9716, lon: float = 77.5946):
     try:
         result = await trigger_service.check_weather_event(lat, lon)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/premium/calculate")
+async def calculate_premium(req: PremiumCalculateRequest):
+    try:
+        result = premium_service.calculate_premium(
+            plan=req.plan,
+            zone=req.zone,
+            platform=req.platform,
+            aqi_risk=req.aqi_risk,
+            disruption_frequency=req.disruption_frequency
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -369,7 +389,8 @@ async def get_fraud_score(req: FraudScoreRequest):
                 },
                 "timestamp": int(time.time() * 1000)
             })
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to record fraud signal to Firestore: {e}")
             pass
 
         return {
@@ -471,7 +492,8 @@ async def verify_liveness(req: LivenessRequest):
                 "frameCount": req.frameCount,
                 "timestamp": int(time.time() * 1000)
             })
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to record device profile to Firestore: {e}")
             pass
 
         return {
@@ -539,7 +561,8 @@ async def fire_trigger(req: TriggerFireRequest):
             }
             _, doc_ref = db.collection("trigger_events").add(trigger_doc)
             trigger_id = doc_ref.id
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to record manual trigger to Firestore: {e}")
             pass  # Firestore unavailable -- still return result
 
         return {

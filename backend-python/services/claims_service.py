@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 from db.database import get_firestore_client
 from services.payments_service import process_upi_payout
+from services import premium_service, trigger_service
 
 
 def _ml_fraud_score(claim_data: dict) -> dict:
@@ -231,3 +232,106 @@ async def get_all_claims() -> list:
         data["id"] = doc.id
         claims.append(data)
     return claims
+
+
+async def update_claim_status(claim_id: str, status: str, reason: str = None) -> dict:
+    """
+    Manually update a claim status (Admin action).
+    Handles payout processing for manual approvals.
+    """
+    db = get_firestore_client()
+    claim_ref = db.collection("claims").document(claim_id)
+    claim_snap = claim_ref.get()
+
+    if not claim_snap.exists:
+        raise Exception("Claim not found")
+
+    claim_data = claim_snap.to_dict()
+    current_status = claim_data.get("status")
+
+    if current_status in ["approved_paid", "rejected"]:
+        raise Exception(f"Claim already in final state: {current_status}")
+
+    update_payload = {"status": status, "updated_at": int(time.time() * 1000)}
+
+    if status == "rejected":
+        if not reason:
+            raise Exception("Rejection reason is mandated")
+        update_payload["rejectionReason"] = reason
+        claim_ref.update(update_payload)
+        return {"id": claim_id, "status": status, "reason": reason}
+
+    if status == "approved_paid":
+        user_id = claim_data.get("userId")
+        upi_id = claim_data.get("upiId")
+
+        # 1. Fetch worker profile to get plan details
+        worker_docs = db.collection("workers").where("name", "==", user_id).limit(1).stream()
+        worker_profile = None
+        for doc in worker_docs:
+            worker_profile = doc.to_dict()
+            break
+        
+        # Fallback if name-based lookup fails (UID check)
+        if not worker_profile:
+             worker_profile = db.collection("workers").document(user_id).get().to_dict()
+        
+        plan_id = (worker_profile or {}).get("plan", "standard").lower()
+        plan_conf = premium_service.PLANS.get(plan_id, premium_service.PLANS["standard"])
+        weekly_cap = plan_conf["weekly_cap"]
+
+        # 2. Calculate remaining cap
+        week_ago = int((time.time() - 7 * 86400) * 1000)
+        past_claims = (
+            db.collection("claims")
+            .where("userId", "==", user_id)
+            .where("created_at", ">", week_ago)
+            .where("status", "==", "approved_paid")
+            .stream()
+        )
+        total_week_payouts = sum(doc.to_dict().get("amount", 0) for doc in past_claims)
+
+        # 3. Calculate payout amount
+        # Use default values for manual approval: standard hourly loss (4 hrs) for a generic trigger
+        payout_info = trigger_service.calculate_payout(
+            trigger_id="heavy_rain", # Default reference trigger
+            daily_income=1000.0,    # Default daily income
+            hours_lost=4.0,         # Default hours lost for manual review
+            weekly_cap=weekly_cap,
+            total_week_payouts=total_week_payouts
+        )
+        payout_amount = payout_info["payout_amount"]
+
+        if payout_amount <= 0 and total_week_payouts >= weekly_cap:
+             update_payload["status"] = "cap_reached"
+             claim_ref.update(update_payload)
+             return {"id": claim_id, "status": "cap_reached", "message": "Global weekly cap reached for this user."}
+
+        # 4. Process Payout
+        payment_result = await process_upi_payout(claim_id, payout_amount, upi_id)
+        
+        # Note: process_upi_payout already updates claim status and amount, but we'll ensure it here too
+        update_payload["amount"] = payout_amount
+        update_payload["status"] = "approved_paid"
+        claim_ref.update(update_payload)
+
+        # Add to payouts record
+        db.collection("payouts").add({
+            "claimId": claim_id,
+            "userId": user_id,
+            "amount": payout_amount,
+            "upiId": upi_id,
+            "status": "processed",
+            "created_at": int(time.time() * 1000)
+        })
+
+        return {
+            "id": claim_id,
+            "status": "approved_paid",
+            "amount": payout_amount,
+            "paymentResult": payment_result
+        }
+
+    # For other transitional statuses
+    claim_ref.update(update_payload)
+    return {"id": claim_id, "status": status}

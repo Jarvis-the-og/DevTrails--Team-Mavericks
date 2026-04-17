@@ -55,6 +55,10 @@ class VerifyPaymentRequest(BaseModel):
     userId: str = 'Worker'
     amount: int = 0
 
+class ClaimStatusUpdateRequest(BaseModel):
+    status: str
+    reason: Optional[str] = None
+
 class FraudScoreRequest(BaseModel):
     userId: str
     userAgent: str = ""
@@ -238,6 +242,15 @@ async def get_user_claims(user_id: str):
         return {"claims": claims}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/claims/{claim_id}/status")
+async def update_claim_status(claim_id: str, req: ClaimStatusUpdateRequest):
+    try:
+        result = await claims_service.update_claim_status(claim_id, req.status, req.reason)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/plans")
